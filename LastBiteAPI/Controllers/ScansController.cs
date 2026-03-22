@@ -37,11 +37,13 @@ namespace LastBiteAPI.Controllers
                 MetricsController metricsController = new MetricsController(db_context);
                 foreach (ScansModel scan in scans)
                 {
-                    metricsController.updateFood(scan.FoodName);
+                    await metricsController.UpdateFoodInternal(scan.FoodName);
                 }
 
                 db_context.Scans.AddRange(scans);
                 await db_context.SaveChangesAsync();
+
+                await metricsController.UpdateAllWastedShares();
 
                 return Ok();
             }

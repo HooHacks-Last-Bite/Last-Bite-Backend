@@ -32,32 +32,62 @@ namespace LastBiteAPI.Controllers
             }
         }
 
-        [HttpPut("updateFood/{foodName}")]
-        public async Task<IActionResult> updateFood(string foodName)
+        [NonAction]
+        public async Task<bool> UpdateFoodInternal(string foodName)
+        {
+            var metric = await db_context.Metrics
+                .FirstOrDefaultAsync(food => food.FoodName == foodName);
+
+            if (metric == null)
+            {
+                return false;
+            }
+
+            metric.Frequency += 1;
+            metric.ShareOfThisWasted = (float) metric.Frequency / metric.ProvidedCount;
+
+            return true;
+        }
+
+        [NonAction]
+        public async Task UpdateAllWastedShares()
         {
             try
             {
-                var metric = await db_context.Metrics
-                    .FirstOrDefaultAsync(food => food.FoodName == foodName);
+                int frequencySum = 0;
+                foreach (MetricsModel foodMetric in db_context.Metrics)
+                {
+                    frequencySum += foodMetric.Frequency;
+                }
 
-                if (metric == null)
+                foreach (MetricsModel foodMetric in db_context.Metrics)
+                {
+                    foodMetric.ShareOfAllWasted = (float)foodMetric.Frequency / frequencySum;
+                }
+
+                await db_context.SaveChangesAsync();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.ToString());
+            }
+
+        }
+
+        [HttpPut("updateFood/{foodName}")]
+        public async Task<IActionResult> UpdateFood(string foodName)
+        {
+            try
+            {
+                bool updated = await UpdateFoodInternal(foodName);
+
+                if (!updated)
                 {
                     return NotFound(new { message = "Food not found" });
                 }
 
-                metric.Frequency += 1;
-                metric.ShareOfThisWasted = metric.Frequency / metric.ProvidedCount;
-
-                int frequencySum = 0;
-                foreach (MetricsModel met in db_context.Metrics)
-                {
-                    frequencySum += met.Frequency;
-                }
-                metric.ShareOfAllWasted = (float) metric.Frequency / frequencySum;
-
                 await db_context.SaveChangesAsync();
-
-                return Ok(metric);
+                return Ok();
             }
             catch (Exception e)
             {
